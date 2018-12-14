@@ -3,11 +3,24 @@ package forward
 //----------------------------------------------------------------------------------------------------------------------
 import (
     "log"
+    "os"
     "net"
     "sync"
     "time"
-    "reflect"
 )
+//----------------------------------------------------------------------------------------------------------------------
+func log_it(msg string) {
+    log.SetOutput(os.Stdout)
+    log.Print(msg)
+    log_file                                :=  os.Args[0]+".log"
+    f, err                                  :=  os.OpenFile(log_file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+    if err                                  !=  nil {
+        log.Fatalf("error opening file: %v", err)
+    }
+    defer f.Close()
+    log.SetOutput(f)
+    log.Println(msg)
+}
 //----------------------------------------------------------------------------------------------------------------------
 const bufferSize							=	4096
 //----------------------------------------------------------------------------------------------------------------------
@@ -38,7 +51,7 @@ var DefaultTimeout							=	time.Minute * 5
 // timeout to "disconnect" clients after the timeout period of inactivity. It
 // implements a reverse NAT and thus supports multiple seperate users. Forward
 // is also asynchronous.
-func Forward(src, dst string, timeout time.Duration, restricted bool, allowed_udps []net.UDPAddr) (*Forwarder, error) {
+func Forward(src, dst string, timeout time.Duration, restricted bool, allowed_udps []string) (*Forwarder, error) {
 //func Forward(src, dst string, timeout time.Duration) (*Forwarder, error) {
     forwarder								:=	new(Forwarder)
     forwarder.connectCallback				=	func(addr string) {}
@@ -69,7 +82,7 @@ func Forward(src, dst string, timeout time.Duration, restricted bool, allowed_ud
     return forwarder, nil
 }
 //----------------------------------------------------------------------------------------------------------------------
-func (f *Forwarder) run(restricted bool, allowed_udps []net.UDPAddr) {
+func (f *Forwarder) run(restricted bool, allowed_udps []string) {
     for {
         buf									:=	make([]byte, bufferSize)
         //читаем UDP-буфер
@@ -81,18 +94,18 @@ func (f *Forwarder) run(restricted bool, allowed_udps []net.UDPAddr) {
         if(restricted) {
             found                           :=  false
             for _, each_addr                :=  range allowed_udps {
-                if (reflect.DeepEqual(addr.IP, each_addr.IP)) {
+                if (addr.IP.String()        ==  each_addr) {
                     found                   =   true
                 }
             }
             if (found) {
-                log.Print("UDP connection from " + addr.IP.String() + " accepted")
+                log_it("UDP connection from " + addr.IP.String() + " accepted")
                 go f.handle(buf[:n], addr)
             } else {
-                log.Print("UDP connection from " + addr.IP.String() + " declined")
+                log_it("UDP connection from " + addr.IP.String() + " rejected")
             }
         }else{
-            log.Print("UDP connection from " + addr.IP.String() + " unrectricted")
+            log_it("UDP connection from " + addr.IP.String() + " unrectricted")
             go f.handle(buf[:n], addr)
         }
     }
@@ -129,7 +142,7 @@ func (f *Forwarder) handle(data []byte, addr *net.UDPAddr) {
     if !found {
         conn, err							:=	net.ListenUDP("udp", f.client)
         if err								!=	nil {
-            log.Println("udp-forwader: failed to dial:", err)
+            log_it("udp-forwader: failed to dial:" + err.Error())
             return
         }
         f.connectionsMutex.Lock()
