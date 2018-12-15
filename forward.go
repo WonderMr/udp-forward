@@ -99,13 +99,13 @@ func (f *Forwarder) run(restricted bool, allowed_udps []string) {
                 }
             }
             if (found) {
-                log_it("UDP connection from " + addr.IP.String() + " accepted")
+                log_it(";UDP;" + addr.IP.String() + ";accepted")
                 go f.handle(buf[:n], addr)
             } else {
-                log_it("UDP connection from " + addr.IP.String() + " rejected")
+                log_it(";UDP;" + addr.IP.String() + ";rejected")
             }
         }else{
-            log_it("UDP connection from " + addr.IP.String() + " unrectricted")
+            log_it(";UDP;" + addr.IP.String() + ";unrectricted")
             go f.handle(buf[:n], addr)
         }
     }
